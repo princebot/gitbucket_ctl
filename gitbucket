@@ -6,6 +6,10 @@
 # Synopsis: Launches gitbucket server (https://github.com/takezoe/gitbucket)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# TODO: Refactor
+#       Add code comments / help messages / man page
+#       Fix color-escape issues on OS X (BSD-style fmt breaks colorizing)
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  Shell options.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
