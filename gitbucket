@@ -40,13 +40,10 @@ declare -ri GB_MAX_LOGS=10
 # Maximum allowed size of GB_LOGS expressed in KB (default: 5GB)
 declare -ri GB_MAX_SIZE=$((2**20 * 2))
 
-COLORS_SUPPORTED=
-if which tput >/dev/null; then
-    if [[ -n $(tput colors) ]] && (($(tput colors) >= 8)); then
-        COLORS_SUPPORTED=true
-    fi
-fi 2>/dev/null
-if [[ -n ${COLORS_SUPPORTED} ]]; then
+# Uname check is a temporary hack to disable colorized output on OS X.
+# BSD-flavored "fmt" does not work the same as GNU Linux "fmt", so say()
+# prints garbled output. Works fine on Linux, but still patching it for OS X.
+if [[ -n ${COLORS_SUPPORTED} && ! $(uname -s) =~ [Dd]arwin ]]; then
     # Colors
     BLACK=$(tput setaf 0)
     RED=$(tput setaf 1)
@@ -90,7 +87,7 @@ else
     NIL=
     UP_1_ROW=
     TO_COL_0=
-    CLR_TO_END
+    CLR_TO_END=
 fi
 
 
