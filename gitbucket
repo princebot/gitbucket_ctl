@@ -2,7 +2,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Name:     gitbucket
 # Author:   prince@princebot.com
-# Usage:    gitbucket [--host HOST] [--port PORT ] [ --directory DIRECTORY]
+# Usage:    gitbucket start|stop|status|install|uninstall|upgrade|help
 # Synopsis: Launches gitbucket server (https://github.com/takezoe/gitbucket)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
