@@ -1,0 +1,652 @@
+#!/usr/bin/env bash
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Name:     gitbucket
+# Author:   prince@princebot.com
+# Usage:    gitbucket [--host HOST] [--port PORT ] [ --directory DIRECTORY]
+# Synopsis: Launches gitbucket server (https://github.com/takezoe/gitbucket)
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  Shell options.
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+set -o pipefail
+shopt -s extglob
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  Constants.
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PROG=$(basename "${BASH_SOURCE}")
+USAGE=$(cat <<EOF_USAGE
+
+Usage: ${PROG} [--host HOST] [--port PORT ] [ --directory DIRECTORY]
+
+Launch gitbucket (https://github.com/takezoe/gitbucket)
+ 
+EOF_USAGE
+)
+
+declare -r  GB_DATA=~/.gitbucket
+declare -r  GB_HOME=~/opt/gitbucket
+declare -r  GB_LOGS="${GB_HOME}/logs"
+declare -r  GB_LOG="${GB_LOGS}/gitbucket.log"
+declare -r  GB_WAR="${GB_HOME}/gitbucket.war"
+declare -ri GB_MAX_LOGS=10
+# Maximum allowed size of GB_LOGS expressed in KB (default: 5GB)
+declare -ri GB_MAX_SIZE=$((2**20 * 2))
+
+COLORS_SUPPORTED=
+if which tput >/dev/null; then
+    if [[ -n $(tput colors) ]] && (($(tput colors) >= 8)); then
+        COLORS_SUPPORTED=true
+    fi
+fi 2>/dev/null
+if [[ -n ${COLORS_SUPPORTED} ]]; then
+    # Colors
+    BLACK=$(tput setaf 0)
+    RED=$(tput setaf 1)
+    GREEN=$(tput setaf 2)
+    YELLOW=$(tput setaf 3)
+    BLUE=$(tput setaf 4)
+    MAGENTA=$(tput setaf 5)
+    CYAN=$(tput setaf 6)
+    WHITE=$(tput setaf 7)
+    # Style
+    BOLD=$(tput bold)
+    UL=$(tput smul)
+    STOP_UL=$(tput rmul)
+    CMD=$(tput setaf 7)$(tput smul)
+    RESET=$(tput sgr0)
+    NIL=${GREEN}
+    # Cursor movement
+    if tput cuu1 &>/dev/null; then
+        UP_1_ROW=$(tput cuu1)
+    fi
+    if tput cr &>/dev/null; then
+        TO_COL_0=$(tput cr)
+    fi
+    if tput el &>/dev/null; then
+        CLR_TO_END=$(tput el)
+    fi
+else
+    BLACK=
+    RED=
+    GREEN=
+    YELLOW=
+    BLUE=
+    MAGENTA=
+    CYAN=
+    WHITE=
+    BOLD=
+    UL=
+    STOP_UL=
+    CMD=
+    RESET=
+    NIL=
+    UP_1_ROW=
+    TO_COL_0=
+    CLR_TO_END
+fi
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  Functions
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+main() {
+    if (($# < 1 )); then
+        die --show-usage "No arguments given"
+    fi
+    local method
+    case $1 in
+        help|-h|-help|--help)
+            method=help
+            shift
+            ;;
+        install|remove|restart|start|stop|status|uninstall|update|upgrade)
+            method=$1
+            shift
+            ;;
+        *)
+            die --show-usage "Unknown operation \"$1\""
+    esac
+    set -o pipefail
+    gitbucket::${method} "$@"
+}
+
+
+die() {
+    local show_usage
+    if [[ $1 == --show-usage ]]; then
+        show_usage=true
+        shift
+    fi
+    local header=" >   ${BOLD}${PROG}: Error:${RESET}${RED}"
+    local ct=$(wc -m <(echo -n "${header}") | awk '{printf $1}')
+    local offset=$(wc -m <(echo -n "${BOLD}${RESET}${RED}") \
+                   | awk '{printf $1}')
+    ct=$((ct - offset - 1))
+    ct=$((ct / 7 - 1))
+    # ct=$(( (ct - (offset + 1)) / 7 - 1))
+    local filler=" >"
+    local i
+    for i in $(seq ${ct}); do
+        filler+=$'\t'
+    done
+    ct=$(wc -l <(fmt -w 50 <(echo -en "$@")) | awk '{printf $1}')
+    header+=$'\n'
+    for i in $(seq $((ct - 1))); do
+        header+=${filler}$'\n'
+    done
+    header=${header%$'\n'}
+    local msg=$(paste <(echo "${header}") <(fmt -w 50 <(echo -en "$@")))
+    echo -e "\n${RED}${msg}${RESET}\n" >&2
+    if [[ -n ${show_usage} ]]; then
+        gitbucket::help
+    fi
+    exit 1
+}
+
+
+say() {
+    local i
+    local nl_after
+    local nl_before
+    local same_line
+    while true; do
+        if [[ $1 == -n ]]; then
+            same_line=true
+            shift
+            continue
+        fi
+        if ! [[ $1 =~ ^-(a|b)$ && $2 =~ ^[0-9]+$ ]]; then
+            break
+        fi
+        for i in $(seq $2); do
+            case $1 in
+                -a) nl_after+=$'\n'  ;;
+                -b) nl_before+=$'\n' ;;
+            esac
+        done
+        shift 2
+    done
+    local msg=$(fmt -w 70 <(echo -e "$@"))
+    local ct=$(wc -l <(echo -e "${msg}") | awk '{print $1}')
+    local filler
+    for i in $(seq ${ct}); do
+        filler+="${WHITE} >  ${GREEN}\n"
+    done
+    filler=${filler%\\n}
+    msg=$(paste -d ' ' <(echo -e "${filler}") <(echo "${msg}"))
+    if [[ -n ${same_line} ]]; then
+        echo -n "${nl_before}${msg}${RESET}"
+    else
+        echo "${nl_before}${msg}${nl_after}${RESET}"
+    fi
+}
+
+
+gitbucket::help() {
+    echo "${USAGE}" >&2
+}
+
+
+# Aliases for gitbucket::install
+gitbucket::upgrade() { gitbucket::install; }
+gitbucket::update() { gitbucket::install; }
+
+
+gitbucket::install() {
+    local action=installation
+    if [[ ${FUNCNAME[1]} =~ ^gitbucket::(update|upgrade)$ ]]; then
+        action=${FUNCNAME[1]##*::}
+    fi
+    say -b 1 "Starting gitbucket ${action}."
+    if gitbucket::readlink -q "${GB_WAR}"; then
+        if [[ ${action} == installation ]]; then
+            say "${BOLD}${GB_WAR}${RESET}${GREEN} already exists."
+            say -n "Upgrade to the most recent release? (y/n)  ${NIL}"
+        else
+            say -n "Okay to overwrite ${GB_WAR}? (y/n)  ${NIL}"
+        fi
+        if gitbucket::confirm; then
+            if ! rm -f -- "${GB_WAR}"; then
+                die "Problem deleting ${GB_WAR}."
+            fi
+            say "Previous gitbucket.war file removed."
+        else
+            say "Leaving existing gitbucket in place."
+        fi
+    fi
+    if [[ ! -f ${GB_WAR} ]]; then
+        mkdir -p "${GB_LOGS}" 2>/dev/null
+        if [[ ! -d ${GB_LOGS} ]]; then
+            die "Unable to create installation directory ${GB_HOME}"
+        fi
+        local gb_url="https://github.com/takezoe/gitbucket/releases"
+        local gb_version=$(curl -sI ${gb_url}/latest \
+                           | awk '/^Location:/ {print a[split($2, a, "/")]}' \
+                           | tr -d $'\r\n')
+        local gb_url="${gb_url}/download/${gb_version}/gitbucket.war"
+        say -a 1 "Downloading latest version of gitbucket\nfrom" \
+                 "\n\t${BOLD}${gb_url}${RESET}${GREEN}" \
+                 "\nto\n\t${BOLD}${GB_WAR}${RESET}"
+        if ! curl -Lo "${GB_WAR}" "${gb_url}"; then
+            die "Problem downloading gitbucket"
+        fi
+    fi
+    while true; do
+        if [[ ! -f ~/bin/gitbucket ]]; then
+            say -b 1 "This script is not currently in ${HOME}/bin."
+            say "Copy it to that location? (y/n)  ${NIL}"
+            if ! gitbucket::confirm; then
+                break
+            fi
+            mkdir -p ~/bin
+            cp "$(gitbucket::readlink "${BASH_SOURCE}")" ~/bin/gitbucket
+        fi
+        if [[ ${PATH} =~ :?${HOME}/bin:? ]]; then
+            break
+        fi
+        say -b 1 "Add ${HOME}/bin to PATH at startup? (y/n)"
+        if ! gitbucket::confirm; then
+            break
+        fi
+        local startup_file=
+        if [[ -w ~/.bashrc ]]; then
+            startup_file=~/.bashrc
+        elif [[ -w ~/.bash_profile ]]; then
+            startup_file=~/.bash_profile
+        elif [[ -w ~/.bash_login ]]; then
+            startup_file=~/.bash_login
+        elif [[ -w ~/.profile ]]; then
+            startup_file=~/.profile
+        else
+            say "Unable to find a recognizable startup file. To add the" \
+                "path manually, put this in your startup:\n\texport" \
+                "PATH=\"\${PATH}:\${HOME}/bin\"" \
+            break
+        fi
+        echo -e "\n# Added by gitbucket installer" \
+                "\nexport PATH=\"\${PATH}:\${HOME}/bin\"" \
+                >> "${startup_file}"
+        say "PATH has been changed in ${startup_file}"
+        break
+    done 2>/dev/null
+    say -a 1 -b 1 "${action^} complete."
+}
+
+
+# Actions:    Resolves symlinks and prints the canonical hardlink path (for
+#             systems like OS X that lack GNU's readlink -e).
+# Globals:    None
+# Arguments:  $1 => FILE
+# Returns:    0 (success), 1 (file does not exist)
+
+gitbucket::readlink() {
+    local opt_quiet
+    if [[ $1 == -q ]]; then
+        opt_quiet=true
+        shift
+    fi
+    local arg=$1
+    if [[ ! -f ${arg} ]]; then
+        return 1
+    fi
+    if [[ -n ${opt_quiet} ]]; then
+        exec 3>&1 >/dev/null
+    fi
+    local -i retval=0
+    if readlink -m . &>/dev/null; then
+        readlink -f "${arg}"
+    else
+        local f
+        if [[ ! -L "${arg}" ]]; then
+            f=$(tr -d $'\r\n' < <(cd "$(dirname "${arg}")" \
+                                  && pwd -P \
+                                  && echo "/$(basename "${arg}")"))
+        else
+            while readlink "$f" &>/dev/null; do
+                f=$(readlink "$f")
+                f=$(tr -d $'\r\n' < <(cd "$(dirname "${arg}")" \
+                                      && cd "$(dirname "${f}")" \
+                                      && pwd -P \
+                                      && echo "/$(basename "${f}")"))
+            done
+        fi
+        if [[ -f ${f} ]]; then
+            echo "${f}"
+        else
+            retval=1
+        fi
+    fi
+    if [[ -n ${opt_quiet} ]]; then
+        exec >&3 3>&-
+    fi
+    return ${retval}
+}
+
+
+gitbucket::confirm() {
+    local resp
+    while true; do
+        read -r resp
+        if [[ ${resp} =~ ^(y|Y|n|N|yes|no)$ ]]; then
+            break
+        else
+            say -b 1 "Please enter 'y' or 'n'"
+        fi
+    done
+    if [[ ${resp} =~ [Yy] ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Alias for gitbucket::uninstall
+gitbucket::remove() { gitbucket::uninstall; }
+
+
+gitbucket::uninstall() {
+    say -b 1 "Starting gitbucket uninstallation"
+    if gitbucket::readlink -q "${GB_WAR}"; then
+        say "Okay to remove ${GB_WAR}? (y/n)  ${RESET}"
+        if gitbucket::confirm; then
+            if ! rm -f -- "${GB_WAR}"; then
+                die "Problem deleting ${GB_WAR}."
+            fi
+            say "gitbucket.war file removed."
+        else
+            say "Halting uninstallation at user request"
+            return
+        fi
+    fi
+    if gitbucket::readlink -q "${GB_DATA}"; then
+        say "Okay to remove ${GB_DATA} directory containing git repositories" \
+            "and other gitbucket files? (y/n) ${NIL}"
+        if gitbucket::confirm; then
+            if ! rm -rf -- "${GB_DATA}"; then
+                die "Problem deleting ${GB_DATA}."
+            fi
+            say "${GB_DATA} directory file removed."
+        fi
+    fi
+    local this=$(gitbucket::readlink "${BASH_SOURCE}")
+    this=${this:-$BASH_SOURCE}
+    say "Remove this script? (y/n)  ${NIL}"
+    if gitbucket::confirm; then
+        if ! rm -f -- "${this}"; then
+            die "Problem deleting ${this}."
+        fi
+        say "${this} successfully deleted"
+        local url="https://github.com/princebot/gitbucket_ctl"
+        say "Redownload link: ${BOLD}${url}${RESET}"
+    fi
+    say -b 1 "Uninstallation complete"
+}
+
+
+gitbucket::status() {
+    local unknown_pids
+    local -a pids
+    if [[ $1 =~ ^[0-9]+$ ]]; then
+        echo
+        while (($# > 0)); do
+            if [[ ! $1 =~ ^[0-9]+$ ]]; then
+                shift
+                continue
+            fi
+            if ps $1 &>/dev/null && ps $1 | grep -Fiq gitbucket; then
+                pids+=($1)
+            else
+                if [[ -z ${unknown_pids} ]]; then
+                    say "${CYAN}status:\t${BOLD}${RED}non-gitbucket PIDs" \
+                        "${RESET}" >&2
+                    unknown_pids=true
+                fi
+                say "${CYAN}pid:\t${BOLD}${RED}${1}${RESET}" >&2
+            fi
+            shift
+        done
+    else
+        local pattern="java -jar ${HOME}/opt/gitbucket/gitbucket.war"
+        local -a pids=($(pgrep -f "${pattern}"))
+    fi
+    [[ ${unknown_pids} ]] && echo
+    local -i retval=0
+    if ((${#pids[@]} > 0)); then
+        [[ ${unknown_pids} ]] && echo -n "${UP_1_ROW}"
+        say -b 1 "${CYAN}status:\t${BOLD}${GREEN}running${RESET}"
+        local i=1
+        local o
+        local p
+        local name
+        local -a a
+        for p in "${pids[@]}"; do
+            if ((${#pids[@]} == 1)); then
+                say "${CYAN}pid:\t${BOLD}${GREEN}${p}"
+            else
+                say "${CYAN}pid($i):\t${BOLD}${GREEN}${p}"
+            fi
+            a=($(ps -ocommand $p | tail -n 1 | awk -F"--" '{print $2,$3,$4}'))
+            ((${#a[@]} == 3)) || continue
+            for o in "${a[@]}"; do
+                o=($(awk -F'=' '{print $1, $2}' <(echo -n $o)))
+                ((${#o[@]} == 2)) || continue 2
+                case $o in
+                    port)           name=port ;;
+                    host)           name=host ;;
+                    gitbucket.home) name=data ;;
+                    *)              false     ;;
+                esac
+                (($?)) && continue
+                say "${CYAN}${name}:\t${BOLD}${GREEN}${o[1]}"
+            done
+            ((i++))
+        done
+        echo
+    else
+        if [[ -z ${unknown_pids} ]]; then
+            say -a 1 -b 1 "${CYAN}status:\t${BOLD}${RED}stopped${RESET}" >&2
+        fi
+        retval=1
+    fi
+    return ${retval}
+}
+
+
+gitbucket::stop() {
+    local -a args
+    local -a pids
+    if [[ $1 =~ ^[0-9]+$ ]]; then
+        while (($# > 0)); do
+            if [[ ! $1 =~ ^[0-9]+$ ]]; then
+                shift
+                continue
+            fi
+            args+=($1)
+            if ps $1 &>/dev/null && ps $1 | grep -Fiq gitbucket; then
+                pids+=($1)
+            fi
+            shift
+        done
+    else
+        local pattern="java -jar ${HOME}/opt/gitbucket/gitbucket.war"
+        pids=($(pgrep -f "${pattern}"))
+    fi
+    if ((${#args} > 0)); then
+        gitbucket::status "${args[@]}"
+    else
+        gitbucket::status
+    fi
+    if (($? != 0)); then
+        say -a 1 "Nothing to do, quitting"
+        return 1
+    fi
+    kill -SIGTERM "${pids[@]}"
+    sleep 2 &
+    echo -n "${UP_1_ROW}"
+    gitbucket::watch_pot "asking gitbucket nicely to quit"
+    if gitbucket::status; then
+        kill -SIGTERM "${pids[@]}"
+        sleep 5 &
+        echo -n "${UP_1_ROW}"
+        gitbucket::watch_pot "asking gitbucket not-so-nicely to quit"
+        if gitbucket::status; then
+            kill -SIGKILL "${pids[@]}"
+            sleep 5 &
+            echo -n "${UP_1_ROW}"
+            gitbucket::watch_pot "resorting to violence"
+            if gitbucket::status; then
+                die "Unable to stop gitbucket process"
+                return 1
+            fi
+        fi
+    fi
+}
+
+
+gitbucket::start() {
+    if gitbucket::status 2>/dev/null; then
+        say -a 1 "Nothing to do, quitting"
+        return 1
+    fi
+    local home
+    local host
+    local -a option
+    local -i port
+    while (($# > 0)); do
+        if [[ $1 =~ .*=.* ]]; then
+            option=($(echo "$1" | awk -F'=' '{print $1, $2}'))
+            if ((${#option[@]} != 2)); then
+                die "Unparsable option \"$1\""
+            fi
+            case ${option[0]} in
+                home)  home=${option[1]} ;;
+                host)  host=${option[1]} ;;
+                port)  port=${option[1]} ;;
+                *)     false             ;;
+            esac
+            (($?)) && die "Unknown option \"${option[0]}\""
+            shift
+        else
+            die "Unparsable option \"$1\""
+        fi
+    done
+    if [[ -n ${port} ]]; then
+        if [[ ! ${port} =~ ^[0-9]+$ ]]; then
+            die "Port value must be a number"
+        fi
+    fi
+    if [[ ! -f ${GB_WAR} ]]; then
+        die "Missing gitbucket WAR file ${GB_WAR}."
+    elif ! which java &>/dev/null; then
+        die "Cannot find an installed Java."
+    fi
+    # say -b 1 -n "Starting gitbucket"
+    mkdir -p "${GB_LOGS}" 2>/dev/null
+    if [[ ! -d ${GB_LOGS} ]]; then
+        die "Unable to create ${GB_LOGS} the directory that contains the logs that this program needs to log what happens when it's logging"
+    fi
+    if ! gitbucket::logrotate; then
+        say "${RED}${GB_LOGS} is still over $((GB_MAX_SIZE / 1024))MB" \
+            "after log rotation.${RESET}"
+    fi
+    nohup java -jar "${GB_WAR}" \
+              --port=${port:-8080} \
+              --host=${host:-localhost} \
+              --gitbucket.home=${home:-$HOME/.gitbucket} &>${GB_LOG} &
+    local -i pid=$!
+    if ! kill -0 ${pid}; then
+        die "Failed to start gitbucket."
+    fi
+    sleep 5 &
+    gitbucket::watch_pot "starting gitbucket"
+    if ! gitbucket::status; then
+        say -a 1 "Problem starting gitbucket."
+    fi
+}
+
+
+gitbucket::logrotate() {
+    local log
+    local n=0
+    local field=0
+    for log in "${GB_LOGS}"/gitbucket.log?(.+([0-9])); do
+        n=$(awk -F'.' '{printf NF}' <(echo -n $log))
+        if ((n > field)); then
+            field=$n
+        fi
+    done
+    local -a logs=(
+        $(sort -rnb -t '.' -k ${field} \
+            <(echo "${GB_LOGS}"/gitbucket.log?(.+([0-9])) | tr ' ' $'\n')
+        )
+    )
+    for log in "${logs[@]}"; do
+        if [[ -f ${log} ]]; then
+            n=$(basename "${log}" | awk -F "." '{printf $NF}')
+            [[ $n =~ ^[0-9]+$ ]] || n=0
+            if (( n >= (GB_MAX_LOGS - 1) )); then
+                rm -f -- "${log}"
+                continue
+            fi
+            if ((n == 0)); then
+                mv -f -- "${log}" "${log}.1"
+            else
+                mv -f -- "${log}" "${log/%.$n/.$((n+1))}"
+            fi
+        fi
+    done
+    gitbucket::purge_logs $((GB_MAX_LOGS - 1))
+}
+
+
+gitbucket::purge_logs() {
+    local n=$1
+    local log=${GB_LOGS}/gitbucket.log.$1
+    local -i retval=0
+    local -i size=$(du -ks "${GB_LOGS}" | awk '{printf $1}')
+    if ((size > GB_MAX_SIZE)); then
+        if ((n <=0 )); then
+            retval=1
+        else
+            rm -r -- "${log}"
+            gitbucket::purge_logs $((n - 1))
+            retval=$?
+        fi
+    fi
+    return ${retval}
+}
+
+gitbucket::watch_pot() {
+    local pid=$!
+    local spinner=('-' '\' '|' '/')
+    tput civis
+    trap "tput cvvis; trap - RETURN EXIT" RETURN EXIT
+    say -b 1 -n "[${1:-working}]${RESET}${WHITE} ${spinner}"
+    local char
+    while kill -0 ${pid}; do
+        for char in "${spinner[@]}"; do
+            printf "\b${char}"
+            sleep .1
+        done
+    done
+    echo -n "${TO_COL_0}"
+    say "[${2:-done}]${CLR_TO_END}"
+} 2>/dev/null
+
+
+gitbucket::restart() {
+    gitbucket::stop "$@"
+    gitbucket::start
+}
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  Begin execution.
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+main "$@"
