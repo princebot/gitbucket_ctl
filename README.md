@@ -16,7 +16,7 @@ It's well-documented for using in production environments. However, my use case 
 
 However, it didn't have a management utility. It can integrate with OS X's `launchctl`, but lacked a simple / direct way to do it ad-hoc.
 
-So I made this management utility. It can install, remove, start, stop, report status---basically, anything you'd expect from a SysV style `service PROG start|stop|reload|etc` script.
+So I made this **gitbucket control script**. It can install, remove, start, stop, report status---basically, anything you'd expect from a SysV style `service PROG start|stop|reload|etc` script.
 
 This is still a work in progress---posted it just to share with some friends. Needs help strings and refactoring, as well as more testing.
 ### Usage
