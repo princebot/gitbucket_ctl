@@ -1,5 +1,5 @@
 # gitbucket_ctl
-Management utility for the wonderful gitbucket project, reminiscent of init scripts.
+Management utility for the wonderful gitbucket project, reminiscent of init scripts
 
 ### Quickstart
 
@@ -34,6 +34,11 @@ You can, however, pass options to `gitbucket start` like so:
 gitbucket start host=HOST port=PORT home=GITBUCKET-DATA-DIRECTORY
 ```
 
-### Bugs
+### TODO
 
-It works on CentOS/RHEL and other Linuxes I've tested so far; however, the way output is formatted doesn't jibe with OS X's BSD-flavored commands. Specifically, the `fmt` command screws with the color escapes. Still fixing that.
+* ~~Fix color-display bug on OS X systems
+* Add man page
+* Refactor / organize code
+* Add docstrings for functions
+* Add code comments
+* Test on more operating systems (CentOS and OS X tested so far)
