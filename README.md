@@ -36,7 +36,7 @@ gitbucket start host=HOST port=PORT home=GITBUCKET-DATA-DIRECTORY
 
 ### TODO
 
-* ~~Fix color-display bug on OS X systems
+* ~~Fix color-display bug on OS X systems~~
 * Add man page
 * Refactor / organize code
 * Add docstrings for functions
