@@ -23,7 +23,7 @@ shopt -s extglob
 PROG=$(basename "${BASH_SOURCE}")
 USAGE=$(cat <<EOF_USAGE
 
-Usage: ${PROG} [--host HOST] [--port PORT ] [ --directory DIRECTORY]
+Usage: ${PROG} start|stop|status|install|uninstall|upgrade|help
 
 Launch gitbucket (https://github.com/takezoe/gitbucket)
  
