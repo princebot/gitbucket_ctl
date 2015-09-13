@@ -8,7 +8,6 @@
 
 # TODO: Refactor
 #       Add code comments / help messages / man page
-#       Fix color-escape issues on OS X (BSD-style fmt breaks colorizing)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  Shell options.
@@ -40,10 +39,7 @@ declare -ri GB_MAX_LOGS=10
 # Maximum allowed size of GB_LOGS expressed in KB (default: 5GB)
 declare -ri GB_MAX_SIZE=$((2**20 * 2))
 
-# Uname check is a temporary hack to disable colorized output on OS X.
-# BSD-flavored "fmt" does not work the same as GNU Linux "fmt", so say()
-# prints garbled output. Works fine on Linux, but still patching it for OS X.
-if [[ -n ${COLORS_SUPPORTED} && ! $(uname -s) =~ [Dd]arwin ]]; then
+if [[ -n ${COLORS_SUPPORTED} ]]; then
     # Colors
     BLACK=$(tput setaf 0)
     RED=$(tput setaf 1)
@@ -135,13 +131,13 @@ die() {
     for i in $(seq ${ct}); do
         filler+=$'\t'
     done
-    ct=$(wc -l <(fmt -w 50 <(echo -en "$@")) | awk '{printf $1}')
+    ct=$(wc -l <(fold -w 50 <(echo -en "$@")) | awk '{printf $1}')
     header+=$'\n'
     for i in $(seq $((ct - 1))); do
         header+=${filler}$'\n'
     done
     header=${header%$'\n'}
-    local msg=$(paste <(echo "${header}") <(fmt -w 50 <(echo -en "$@")))
+    local msg=$(paste <(echo "${header}") <(fold -w 50 <(echo -en "$@")))
     echo -e "\n${RED}${msg}${RESET}\n" >&2
     if [[ -n ${show_usage} ]]; then
         gitbucket::help
@@ -172,7 +168,7 @@ say() {
         done
         shift 2
     done
-    local msg=$(fmt -w 70 <(echo -e "$@"))
+    local msg=$(fold -w 70 <(echo -e "$@"))
     local ct=$(wc -l <(echo -e "${msg}") | awk '{print $1}')
     local filler
     for i in $(seq ${ct}); do
