@@ -1,44 +1,35 @@
 # gitbucket_ctl
-Management utility for the wonderful gitbucket project, reminiscent of init scripts
+super-convenient init-style command functions and log management for the ever-awesome **[GitBucket Server](https://github.com/takezoe/gitbucket)**
 
 ### Quickstart
 
-* Clone this project
-* Run `gitbucket install`
-* Run `gitbucket start`
+```
+gitbucket help|install|restart|uninstall|upgrade
 
+gitbucket start [[host=HOST] [port=PORT] [data=DIRECTORY]]
+
+gitbucket stop [PID [PID...]]
+
+gitbucket status [PID [PID...]]
+```
+
+1. Clone this repo
+2. `gitbucket install && gitbucket start`
+3. There is no step three.
 
 ### About
 
-**gitbucket** [https://github.com/takezoe/gitbucket] is an awesome self-hosted GitHub clone. Unlike others, it's dead-simple to set up: no database configuring, no web-server management---it's all just a single .WAR file that you run.
+**gitbucket**  is  a  management  utility  that adds easy command-line management to **[GitBucket Server](https://github.com/takezoe/gitbucket)**, enabling you to quickly stop and start GitBucket
+Server, get information on running instances, and install, uninstall, or update GitBucket Server with short init-style commands. Additionally, **gitbucket** wraps GitBucket Server with simple logging and log rotation.
 
-It's well-documented for using in production environments. However, my use case is different: I like it as a quick-and-dirty way to share code at work or other environments where posting it to one of the many cloud-hosted code-sharing sites would be inappropriate. And gitbucket couldn't be simpler for this.
+**GitBucket  Server** is an awesome GitHub-clone that’s dead-simple to use --- no database set-up, no web-server
+configuration, just a single .WAR file you can run directly using command-line arguments. I made this **control script** for my own use-case: I often want to share code in a quick-and-dirty way, but on internal networks rather than cloud-based codesharing sites. And GitBucket Server works great for that using this utility:
 
-However, it didn't have a management utility. It can integrate with OS X's `launchctl`, but lacked a simple / direct way to do it ad-hoc.
+* **gitbucket install && gitbucket start** (if the server is not installed), *or*
+* **gitbucket start** (if you already have it)
 
-So I made this **gitbucket control script**. It can install, remove, start, stop, report status---basically, anything you'd expect from a SysV style `service PROG start|stop|reload|etc` script.
+And that's pretty much it: **gitbucket** makes an already user-friendly application absurdly simple to use.
 
-This is still a work in progress---posted it just to share with some friends. Needs help strings and refactoring, as well as more testing.
-### Usage
+For more info, git-clone **gitbucket** and check out the man page.
 
-```
-gitbucket help
-gitbucket start|stop|status|restart
-gitbucket instaall|uninstall|upgrade
-```
-
-By default, `gitbucket start` spins up a gitbucket instance on localhost at port 8080, default credentials root/root.
-
-You can, however, pass options to `gitbucket start` like so:
-```
-gitbucket start host=HOST port=PORT home=GITBUCKET-DATA-DIRECTORY
-```
-
-### TODO
-
-* ~~Fix color-display bug on OS X systems~~
-* Add man page
-* Refactor / organize code
-* Add docstrings for functions
-* Add code comments
-* Test on more operating systems (CentOS and OS X tested so far)
+Enjoy!
