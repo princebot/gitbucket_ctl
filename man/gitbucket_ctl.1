@@ -1,0 +1,154 @@
+.\"
+.\" MAN PAGE COMMENTS to
+.\"
+.\" Prince Williams
+.\" prince@princebot.com
+.\" https://github.com/princebot/gitbucket_ctl
+.\"
+.\" Last Change: Sat Sep 12
+.\"
+.mso www.tmac
+.TH GITBUCKET_CTL 1 "2015-09-12" "github.com/princebot/gitbucket_ctl" \
+                "User Commands"
+.SH NAME
+gitbucket \- management utility for GitBucket Server
+.SH SYNOPSIS
+.P
+.B gitbucket
+.BR help | install | restart | uninstall | upgrade
+.P
+.B gitbucket start
+.RB "[[" host=\fIHOST "] [" port=\fIPORT "] [" data=\fIDIRECTORY "]]"
+.P
+.B gitbucket stop
+.RI "[" PID " [" PID... "]]"
+.P
+.B gitbucket status
+.RI "[" PID " [" PID... "]]"
+.SH DESCRIPTION
+.P
+.B gitbucket
+is a management utility that adds easy command-line management to
+.BR "GitBucket Server" ,
+enabling you to quickly stop and start
+.BR "GitBucket Server" ,
+get information on running instances, and install, uninstall, or update
+.B GitBucket Server
+with short init-style commands. Additionally,
+.B gitbucket
+wraps
+.B GitBucket Server
+with simple logging and log rotation.
+.P
+.B GitBucket Server
+.URL https://github.com/takezoe/gitbucket
+is an awesome GitHub-clone that\[cq]s dead-simple to use --- no
+database set-up, no web-server configuration, just a single .WAR file you can
+run directly using command-line arguments. This
+.B gitbucket control script
+was created by a happy and appreciative
+.B GitBucket Server
+user for his own use, and it\[cq]s been publicly released so that others can
+easily spin up and tear down
+.B GitBucket Server
+instances for quick-and-dirty local code-sharing in situations where public
+code repos may be inappropriate (for example, at work) or where the situation
+really shouldn\[cq]t require more effort than this:
+.sp
+.in +7
+.B gitbucket install && gitbucket start
+.sp
+.in +7
+if
+.B the server is not already installed, or
+is not already installed, or
+.sp
+.in -7
+.B gitbucket start
+.sp
+.in +7
+if you already have it.
+.sp
+.in -14
+.P
+It\[cq]s that easy:
+.B gitbucket
+makes an already user-friendly application absurdly simple to use.
+.P Installation only needs to be done once.
+.SH OPTIONS
+.TP 7
+.BR help ", "-h ", " -help ", " --help
+Display this man page.
+.TP
+.B install
+Download and install/reinstall GitBucket Server.
+.TP
+.B restart
+Stop all GitBucket Server instances, then start one instance using default
+settings.
+.TP
+.BR start " [[" host=\fIHOST "] [" port=\fIPORT "] [" data=\fIDIRECTORY "]]"
+Start a new GitBucket Server instance. When called without arguments, use these
+default settings:
+.sp
+.in +7
+.B host=localhost
+.br
+.B port=8080
+.br
+.B home=~/.gitbucket
+.in -7
+.TP
+.IR \fBstatus " [" PID " [" PID... "]]"
+Report status of GitBucket Server. When called without arguments, show all
+server instances started by this script; otherwise, show all instances with
+the specified process IDs. Return exit code 1 if no running instances found.
+.TP
+.IR \fBstop " [" PID " [" PID... "]]"
+Stop GitBucket Server instances. When called without arguments, stop all
+instances started by this script; otherwise, stop all instances with the
+specified process IDs.
+.TP
+.B remove
+.br
+.in -7
+.B uninstall
+.br
+.in +7
+Remove GitBucket Server. Prompt to also remove GitBucket Server data directory
+and this management utility.
+.TP
+.B update
+.br
+.in -7
+.B upgrade
+.br
+.in +7
+Update to latest GitBucket Server release.
+.SH FILES
+.TP
+.I ~/opt/gitbucket
+Installation directory created by
+.BR "gitbucket install" .
+.TP
+.I ~/opt/gitbucket/gitbucket.war
+GitBucket Server program file.
+.TP
+.I ~/opt/gitbucket/logs
+Directory created by this utility for GitBucket Server logfiles.
+.TP
+.I ~/.gitbucket
+Default location for GitBucket data files.
+.br
+You can specify another location at server start using command-line options:
+.sp
+.in +7
+.BI "gitbucket start home=" NEW-DATA-DIRECTORY\fR.
+.in -7
+.SH SEE ALSO
+.TP 21
+.PD 0
+.URL https://github.com/princebot/gitbucket "this control script:"
+.TP
+.URL https://github.com/takezoe/gitbucket "gitbucket server:"
+.PD
