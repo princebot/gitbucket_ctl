@@ -276,6 +276,7 @@ gitbucket::install() {
         action=${FUNCNAME[1]##*::}
     fi
     say -a 1 -b 1 "\nStarting gitbucket ${action}.\n "
+    rm -f -- ~/opt/gitbucket/man/gitbucket_ctl.1.gz 2>/dev/null
     if [[ -f ${GB_WAR} ]]; then
         if [[ ${action} == installation ]]; then
             say "${BOLD}${GB_WAR}${RESET}${GREEN} already exists."
@@ -898,9 +899,7 @@ really shouldn\[cq]t require more effort than this:
 .B gitbucket install && gitbucket start
 .sp
 .in +7
-if
-.B the server is not already installed, or
-is not already installed, or
+if the server is not already installed, or
 .sp
 .in -7
 .B gitbucket start
