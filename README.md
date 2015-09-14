@@ -13,9 +13,9 @@ gitbucket stop [PID [PID...]]
 gitbucket status [PID [PID...]]
 ```
 
-1. Clone this repo
-2. `gitbucket install && gitbucket start`
-3. There is no step three.
+1. `git clone https://github.com/princebot/gitbucket_ctl.git && cd gitbucket_ctl`
+2. `./gitbucket install && ./gitbucket start`
+3. There is no step three—you now have a GitBucket Server instance running on http://localhost:8080 that you can log into using uid->root/pw->root. Going forward, **gitbucket** will be in $PATH, so you can call it without prepending ./. Man page is accessed via `gitbucket help`.
 
 ### About
 
