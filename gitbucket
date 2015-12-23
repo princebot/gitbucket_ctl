@@ -302,7 +302,7 @@ gitbucket::install() {
         local gb_url="https://github.com/takezoe/gitbucket/releases"
         local gb_version
         if which curl &>/dev/null; then
-            gb_version=$(curl -sI "${gb_url}/latest" \
+            gb_version=$(curl -sIL "${gb_url}/latest" \
                         | awk -F"/" '/Location:.*tag/ {printf $NF}' \
                         | tr -d $'\r\n')
         elif which wget &>/dev/null; then
